@@ -166,11 +166,6 @@ def create_big_X_y():
     return X, y, non_num_idx
 
 
-# big_... name to not confuse with our previous simple `X`.
-big_X, big_y, non_num_idx = create_big_X_y()
-big_X.shape
-
-
 def mean_impute(X_train, X_test):
     """We assume numpy.ndarrays `X_train` and `X_test` only have numpy.nan as missing values in 
     their numerical features (columns). The output should be modified copies of `X_train` and 
