@@ -87,7 +87,15 @@ def center_and_scale(X):
     First output is a modified copy of `X` where mean of individual features is 0 and 
     standard deviation is 1. The second and third output are original values of said mean and 
     standard deviation respectively."""
-    raise NotImplementedError()
+    orig_center = X.mean(axis=0)  
+    orig_std = X.std(axis=0)
+    
+    X_norm = (X-orig_center)/orig_std   
+    
+    print("Scaled version of X is: ")  
+    print(X_norm)
+    
+    return X_norm, orig_center, orig_std
 
 
 def uncenter_and_unscale(X_norm, orig_center, orig_std):
@@ -95,7 +103,11 @@ def uncenter_and_unscale(X_norm, orig_center, orig_std):
     now with mean 0 and standard deviation 1. Output is a modified copy of `X_norm` with values of
     `orig_center` as column means and values of `orig_std` as column standard deviations. (This
     function thus reverses `center_and`scale`.)"""
-    raise NotImplementedError()
+    unscaled_X =(X_norm * orig_std)+orig_center  
+    print("Unscaled version of X is: ") 
+    print(unscaled_X) 
+    
+    return unscaled_X
 
 
 def svd_to_components_and_score(U, Sigma_elements, V_transpose, k):
@@ -103,7 +115,10 @@ def svd_to_components_and_score(U, Sigma_elements, V_transpose, k):
     components. First output is `k`-by-d component numpy.ndarray; second output is n-by-`k` score 
     numpy.ndarray.
     """
-    raise NotImplementedError()
+    score = U[:,:k] * Sigma_elements[:k]
+    components = V_transpose[:k]
+
+    return components, score
 
 
 def score_new_data(new_X, orig_center, orig_std, components):
@@ -112,7 +127,10 @@ def score_new_data(new_X, orig_center, orig_std, components):
     `orig_std`. These params refer to feature means and standard deviations respectively. 
     Output is a representation of this normalized `new_X` in terms of `components`, i.e., a score 
     matrix."""
-    raise NotImplementedError()
+    new_X_norm = (new_X-orig_center)/orig_std
+    new_X_reconstr = new_X_norm @ sk_components.transpose()
+    
+    return new_X_reconstr
 
 
 def pca(X, k):
@@ -171,13 +189,18 @@ def mean_impute(X_train, X_test):
     their numerical features (columns). The output should be modified copies of `X_train` and 
     `X_test` where the missing values are replaced by the mean of the column of `X_train` in which 
     the value was missing. (The test might enlighten you.)"""
-    raise NotImplementedError()
+    X_train = np.nan_to_num(X_train, nan=np.nanmean(X_train, axis=0, keepdims = True))
+    X_test = np.nan_to_num(X_test, nan=np.nanmean(X_train, axis=0, keepdims = True))
+    
+    return X_train, X_test
 
 
 def only_num(X, non_num_idx):
     """The columns of numpy.ndarray `X` whose indices are stored in `non_num_idx` are not 
     numerical. Return a modified copy of `X` that does _not_ contain these columns."""
-    raise NotImplementedError()
+    mod_X = np.delete(X, non_num_idx, axis=1)
+   
+    return mod_X
 
 
 def replace_num_with_score(X, non_num_idx, score):
@@ -187,7 +210,13 @@ def replace_num_with_score(X, non_num_idx, score):
     # Assume only first features can be non-numerical to make our life easier
     assert all([i == non_num_idx[i] for i in range(len(non_num_idx))])
 
-    raise NotImplementedError()
+    i = len(non_num_idx)
+    X_non_numerical = X[:,0:i]
+    sc = np.array(score)
+    X_non_num = np.reshape(X_non_numerical, (X_non_numerical.shape[0],i))
+    X = np.append(X_non_num, sc, axis=1)
+       
+    return X
 
 
 def preprocess(X_train, X_test, non_num_idx, pca_k=False):
@@ -212,7 +241,28 @@ def repeated_cross_validation(X, y, n_repeats, n_folds, non_num_idx, pca_k=False
     cross validation which includes `preprocess(X_train, X_test, non_num_idx, pca_k)` and training
     an `SVC(random_state=(i+1)*(j+1))` where `j` is the index of the test fold. Return an 
     `n_repeats`-by-`n_folds` numpy.ndarray of mean accuracies per test fold."""
-    raise NotImplementedError()
+    for i in range(n_repeats):
+        #create X and y folds with seed i
+        fold = NFolds(X,y, n_folds,i)  
+        #NFolds returns a matrix train,test
+        X_train, X_test, y_train, y_test = fold.get_fold(1) 
+        for j in range(n_folds):
+            #perform cross-validation
+            #preprocesss
+            X_train = preprocess(X_train, X_test, non_num_idx, pca_k)
+            X_test = preprocess(X_train, X_test, non_num_idx, pca_k)
+            y_train = preprocess(X_train, X_test, non_num_idx, pca_k)
+            y_test = preprocess(y_train, y_test, non_num_idx, pca_k)
+            #train an SVC
+            clf = SVC(random_state=(i+1)*(j+1))
+            clf.fit(X_train, y_train)
+            pred = clf.predict(X_test)
+            
+            accuracy = mean_squared_error(y_test, pred) 
+            accuracies = np.append(accuracy) 
+            print(accuracies)
+            
+    return accuracies
 
 
 def approx_X_from_X_with_score(X_with_score, pca_dict, non_num_idx):
